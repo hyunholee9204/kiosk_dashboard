@@ -53,3 +53,17 @@ END LOOP;
 
 ### 2) 고성능 복잡 통계 연산 (Spring Data JPA Native Query)
 윈도우 함수(DENSE_RANK() OVER) 및 EXTRACT/TO_CHAR를 활용하여 데이터베이스 최적화 연산을 수행하고, JPA Interface Mapping으로 유연하게 데이터를 바인딩했습니다.
+
+```java
+// SalesRepository.java - 카테고리별 1등 상품 추출 (윈도우 함수 적용)
+@Query(value = "WITH menu_sales AS ( " +
+               "    SELECT m.category, m.menu_name, SUM(od.quantity) AS total_qty " +
+               "    FROM order_details od " +
+               "    JOIN menus m ON od.menu_id = m.menu_id " +
+               "    GROUP BY m.category, m.menu_name " +
+               ") " +
+               "SELECT category, menu_name AS menuName, total_qty AS totalQty, " +
+               "DENSE_RANK() OVER (PARTITION BY category ORDER BY total_qty DESC) AS categoryRank " +
+               "FROM menu_sales", nativeQuery = true)
+List<CategoryTopMenuDto> findCategoryTopMenus();
+```
