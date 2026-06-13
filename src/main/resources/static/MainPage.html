@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>☕ 키오스크 점주용 통계 대시보드</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .rank-card { background: linear-gradient(135deg, #fff5e6 0%, #ffeacc 100%); border: 1px solid #ffe0b3; }
+    </style>
+</head>
+<body class="bg-light">
+
+<div class="container my-5">
+    <h1 class="text-center mb-4 fw-bold text-dark">📊 KIOSK 매출 분석 대시보드</h1>
+
+    <div class="row mb-5 text-center">
+        <h4 class="text-start mb-3 fw-bold text-secondary">🏆 카테고리별 인기 1위 상품</h4>
+        <div id="rank-container" class="row g-3 mx-auto">
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-md-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white fw-bold">🕒 시간대별 매출 및 주문 건수 현황 (상대 비교 스케일)</div>
+                <div class="card-body">
+                    <canvas id="hourChart" style="max-height: 400px;"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white fw-bold">🏢 월별 지점 매출 추이 (상대 비교 스케일)</div>
+                <div class="card-body">
+                    <canvas id="storeChart" style="max-height: 400px;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+
+        // 1. 카테고리별 1등 상품
+        fetch('/api/sales/category-rank')
+            .then(res => res.json())
+            .then(data => {
+                const container = document.getElementById('rank-container');
+                const topMenus = data.filter(item => item.categoryRank === 1);
+
+                topMenus.forEach(item => {
+                    const cardHtml = `
+                        <div class="col-md-4">
+                            <div class="card shadow-sm rank-card p-3 rounded-3 text-center">
+                                <span class="badge bg-warning text-dark mx-auto mb-2 fw-bold" style="width: fit-content;">${item.category} 1위</span>
+                                <h3 class="fw-bold text-dark mb-1">${item.menuName}</h3>
+                                <p class="text-muted mb-0">누적 판매: <strong class="text-danger">${item.totalQty.toLocaleString()}</strong>개</p>
+                            </div>
+                        </div>
+                    `;
+                    container.innerHTML += cardHtml;
+                });
+            });
+
+        // 2. 시간대별 통계 차트 (Y축 굴곡 극대화 버전)
+        fetch('/api/sales/hour')
+            .then(res => res.json())
+            .then(data => {
+                const labels = data.map(item => `${item.hourTime}시`);
+                const sales = data.map(item => item.totalSales);
+                const counts = data.map(item => item.orderCount);
+
+                // 데이터의 최솟값과 최댓값을 구해서 Y축 범위를 다이내믹하게 세팅합니다.
+                const minSales = Math.min(...sales);
+                const maxSales = Math.max(...sales);
+                const minCounts = Math.min(...counts);
+                const maxCounts = Math.max(...counts);
+
+                new Chart(document.getElementById('hourChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            { label: '총 매출액 (원)', data: sales, backgroundColor: 'rgba(54, 162, 235, 0.6)', borderColor: 'rgba(54, 162, 235, 1)', borderWidth: 1, yAxisID: 'y' },
+                            { label: '주문 건수 (건)', data: counts, type: 'line', borderColor: 'rgba(255, 99, 132, 1)', backgroundColor: 'rgba(255, 99, 132, 0.2)', yAxisID: 'y1' }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                beginAtZero: false,
+                                // 최솟값의 98% 지점부터 Y축을 시작하게 만들어 굴곡을 뻥튀기합니다.
+                                min: Math.floor(minSales * 0.98),
+                                max: Math.ceil(maxSales * 1.02)
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                grid: { drawOnChartArea: false },
+                                beginAtZero: false,
+                                min: Math.floor(minCounts * 0.98),
+                                max: Math.ceil(maxCounts * 1.02)
+                            }
+                        }
+                    }
+                });
+            });
+
+        // 3. 월별 지점 매출 차트 (Y축 굴곡 극대화 버전)
+        fetch('/api/sales/month-store')
+            .then(res => res.json())
+            .then(data => {
+                const months = [...new Set(data.map(item => item.yearMonth))].sort();
+                const storeNames = [...new Set(data.map(item => item.storeName))];
+                const colors = { '키오스크카페 강남점': 'rgba(255, 99, 132, 0.7)', '키오스크카페 홍대점': 'rgba(75, 192, 192, 0.7)', '키오스크카페 판교점': 'rgba(255, 206, 86, 0.7)' };
+
+                // 매출 데이터 전체 중 최솟값 찾기 (비교 굴곡용)
+                const allSales = data.map(item => item.monthSales);
+                const minStoreSales = Math.min(...allSales);
+                const maxStoreSales = Math.max(...allSales);
+
+                const datasets = storeNames.map(store => {
+                    return {
+                        label: store,
+                        backgroundColor: colors[store] || 'rgba(201, 203, 207, 0.7)',
+                        data: months.map(m => {
+                            const found = data.find(d => d.yearMonth === m && d.storeName === store);
+                            return found ? found.monthSales : 0;
+                        })
+                    };
+                });
+
+                new Chart(document.getElementById('storeChart'), {
+                    type: 'bar',
+                    data: { labels: months, datasets: datasets },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                // 데이터 진폭에 맞춰 최솟값을 가변적으로 제어
+                                min: Math.floor(minStoreSales * 0.95),
+                                max: Math.ceil(maxStoreSales * 1.05)
+                            }
+                        }
+                    }
+                });
+            });
+    });
+</script>
+</body>
+</html>
