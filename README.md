@@ -52,3 +52,4 @@ END LOOP;
 ```
 
 ### 2) 고성능 복잡 통계 연산 (Spring Data JPA Native Query)
+윈도우 함수(DENSE_RANK() OVER) 및 EXTRACT/TO_CHAR를 활용하여 데이터베이스 최적화 연산을 수행하고, JPA Interface Mapping으로 유연하게 데이터를 바인딩했습니다.
