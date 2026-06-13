@@ -48,3 +48,6 @@ FOR i IN 1..500000 LOOP
     
     -- Orders & Order_details 연쇄 트랜잭션 Insert...
 END LOOP;
+```sql
+
+### 2) 고성능 복잡 통계 연산 (Spring Data JPA Native Query)
