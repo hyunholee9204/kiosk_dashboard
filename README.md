@@ -66,4 +66,22 @@ END LOOP;
                "DENSE_RANK() OVER (PARTITION BY category ORDER BY total_qty DESC) AS categoryRank " +
                "FROM menu_sales", nativeQuery = true)
 List<CategoryTopMenuDto> findCategoryTopMenus();
+
+```
+
+### 3) 가변적 Y축 스케일 최적화 (JavaScript / Chart.js)
+대용량 데이터의 특성상 차트가 밋밋한 일자로 단편화되는 문제를 해결하기 위해, JavaScript단에서 데이터의 Math.min / Math.max를 실시간 추적하여 Y축 범위를 다이내믹하게 쥐어짜는 알고리즘을 도입했습니다.
+
+```javascript
+options: { 
+    scales: { 
+        y: { 
+            beginAtZero: false,
+            // 최솟값의 95% 지점부터 Y축을 시작하게 만들어 미세한 격차의 굴곡을 시각적으로 뻥튀기함
+            min: Math.floor(minStoreSales * 0.95),
+            max: Math.ceil(maxStoreSales * 1.05)
+        } 
+    } 
+}
+
 ```
