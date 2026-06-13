@@ -24,3 +24,27 @@
 데이터가 흐르는 전체 레이어를 직접 설계하고 구현했습니다.
 
 [PostgreSQL (50만 건)] ➡️ [JPA Native Query / Interface DTO] ➡️ [Spring REST Controller] ➡️ [Chart.js (Front)]
+
+<br>
+
+## 💡 4. 주요 기능 및 핵심 소스코드
+
+### 1) 가중치 기반 대용량 데이터 적재 (PL/pgSQL)
+단순한 무작위 데이터가 아닌 **"강남점 매출 집중", "5~6월 우상향 트렌드"** 등 실제 비즈니스 시나리오 가중치를 적용하여 50만 건의 트랜잭션을 디비 엔진 단에서 고속 벌크 적재했습니다.
+
+```sql
+-- 지점별/월별 빈부격차 가중치를 부여한 50만 건 트랜잭션 생성 스크립트 일부
+FOR i IN 1..500000 LOOP
+    v_rand := random();
+    
+    -- 강남점(1번) 50%, 홍대점(2번) 35%, 판교점(3번) 15% 가중치 부여
+    IF v_rand < 0.50 THEN v_store_id := 1; 
+    ELSIF v_rand < 0.85 THEN v_store_id := 2;
+    ELSE v_store_id := 3;
+    END IF;
+    
+    -- 지수 함수를 이용해 뒤로 갈수록(5, 6월) 매출이 폭발하는 트렌드 반영
+    v_order_time := '2026-03-01 00:00:00'::timestamp + (random() ^ 0.7) * (interval '108 days');
+    
+    -- Orders & Order_details 연쇄 트랜잭션 Insert...
+END LOOP;
